@@ -79,3 +79,23 @@ or, if the user didn't have any resources allocated to them:
 ```
 <botname> @user I didn't even know you were using something!
 ```
+
+
+### Querying the resource
+
+```
+<user> @botname <resource> is free?
+<botname> @user It is! Go ahead and request it!
+```
+
+or, if there is someone already using it:
+
+```
+<botname> @user No, <another user> is using it. You're not in the list, though.
+```
+
+or, if there is someone using it and the user is already in the list.
+
+```
+<botname> @user No, <another user> is using it. You're {position} after him.
+```
