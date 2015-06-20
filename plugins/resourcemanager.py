@@ -83,7 +83,8 @@ class BoardManager(WillPlugin):
     def done(self, message):
         used_resource = self._user_resource(message.sender.nick)
         if not used_resource:
-            self.reply(message, 'I didn\'t even know you were using something!')
+            self.reply(message, 'I didn\'t even know you were using '
+                       'something!')
             return
 
         # what can happen here:
@@ -117,7 +118,38 @@ class BoardManager(WillPlugin):
         return
 
     @respond_to('(?P<resource>\S+) is free\?')
-    def is_free(self, message, resource):
+    def is_free(self, message, resource=None):
+        """Answers if a resource is free."""
+        if not resource:
+            self.reply('The nothingness is always free.')
+            return
+
+        if resource not in self.resources:
+            self.reply(message, 'I never heard of "{resource}", is it '
+                       'something you can eat?'.format(resource=resource))
+            return
+
+        if not self.resources[resource]:
+            self.reply(message, 'Resource {resource} is free.'.format(
+                resource=resource))
+            return
+
+        try:
+            pos = self.resources[resource].index(message.sender.nick)
+            if pos == 0:
+                self.reply(message, 'Why are you asking if {resource} '
+                           'is free when you\'re the one using it?'.format(
+                               resource=resource))
+            else:
+                self.reply(message, '{user} is using it right now, you\'re '
+                           'user {pos} in the list.'.format(
+                               user=self.resources[resource][0],
+                               pos=pos))
+        except ValueError:
+            self.reply(message, '{user} is using {resource} right now, '
+                       'but you\'re not in the list'.format(
+                           user=self.resources[resource][0],
+                           resource=resource))
         return
 
     def _user_resource(self, user):
@@ -293,6 +325,56 @@ class TestBoardManagerDone(TestBoardManager):
         self.robot.done(self.message_user_1)
         self.assertLastMessage('there is no one using A right now, '
                                'you\'re free to go.',
+                               self.message_user_2)
+        return
+
+
+class TestBoardManagerIsFree(TestBoardManager):
+
+    def setUp(self):
+        super(TestBoardManagerIsFree, self).setUp()
+        self.robot.add_resource(self.message_user_1, 'A')
+
+    def test_is_free(self):
+        """Test if the bot answers correctly when a resource is free."""
+        self.robot.is_free(self.message_user_1, 'A')
+        self.assertLastMessage('Resource A is free.')
+        return
+
+    def test_unknown_resource(self):
+        """Test if the bot complains about an unknwon resource."""
+        self.robot.is_free(self.message_user_1, 'C')
+        self.assertLastMessage('I never heard of "C", is it something you '
+                               'can eat?')
+        return
+
+    def test_user_request_free_self(self):
+        """Test the reply when the user requesting the free information is the
+        one using it right now."""
+        self.robot.request(self.message_user_1, 'A')
+        self.robot.is_free(self.message_user_1, 'A')
+        self.assertLastMessage('Why are you asking if A '
+                               'is free when you\'re the one using it?')
+        return
+
+    def test_free_other_user_using_not_in_list(self):
+        """Test if the bot replies correctly that another using and the
+        requester is not in the list."""
+        self.robot.request(self.message_user_1, 'A')
+        self.robot.is_free(self.message_user_2, 'A')
+        self.assertLastMessage('TestRobot is using A right now, '
+                               'but you\'re not in the list',
+                               self.message_user_2)
+        return
+
+    def test_free_other_user_using_in_the_list(self):
+        """Test if the bot replies correctly that another using and the
+        requester is in the list."""
+        self.robot.request(self.message_user_1, 'A')
+        self.robot.request(self.message_user_2, 'A')
+        self.robot.is_free(self.message_user_2, 'A')
+        self.assertLastMessage('TestRobot is using it right now, you\'re '
+                               'user 1 in the list.',
                                self.message_user_2)
         return
 
