@@ -160,6 +160,19 @@ class TestBoardManager(unittest.TestCase):
         self.last_message = content
         return
 
+    # helpers
+    def assertLastMessage(self, message, reply_to=None):
+        """Check if the last received message is the one we expect."""
+        if reply_to is None:
+            reply_to = self.message_user_1
+
+        self.assertEquals(self.last_message, '@' + reply_to.sender.nick +
+                          ' ' + message)
+        return
+
+
+class TestBoardManagerResources(TestBoardManager):
+
     def test_add_resource(self):
         """Test if adding a resource actually adds a resource."""
         self.robot.add_resource(self.message_user_1, 'A'),
@@ -198,9 +211,15 @@ class TestBoardManager(unittest.TestCase):
         self.assertLastMessage('I know nothing about that resource.')
         return
 
+
+class TestBoardManagerRequests(TestBoardManager):
+    def setUp(self):
+        super(TestBoardManagerRequests, self).setUp()
+        self.robot.add_resource(self.message_user_1, 'A')
+        self.robot.add_resource(self.message_user_1, 'B')
+
     def test_request_resource(self):
         """Test if you can request a resource."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.assertLastMessage('There is no one using it, '
                                'you\'re free to go.')
@@ -209,15 +228,14 @@ class TestBoardManager(unittest.TestCase):
     def test_request_unknown_resource(self):
         """Test if the bot complains when you try to get something that
         doesn't exist."""
-        self.robot.request(self.message_user_1, 'A')
-        self.assertLastMessage('I never heard of "A", is it something you '
+        self.robot.request(self.message_user_1, 'C')
+        self.assertLastMessage('I never heard of "C", is it something you '
                                'can eat?')
         return
 
     def test_request_used_resource(self):
         """Test if the user is added in the waiting list when there is someone
         already using the resource."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.robot.request(self.message_user_2, 'A')
         self.assertLastMessage('{first_user} is using it right now, '
@@ -230,7 +248,6 @@ class TestBoardManager(unittest.TestCase):
     def test_request_resource_already_requested(self):
         """Test if the bot complains about trying to request a resource
         twice."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.assertLastMessage('You\'re already in the list, no need to '
@@ -240,16 +257,20 @@ class TestBoardManager(unittest.TestCase):
     def test_request_two_resources(self):
         """Test if the bot blocks requesting two resources at the same
         time."""
-        self.robot.add_resource(self.message_user_1, 'A')
-        self.robot.add_resource(self.message_user_1, 'B')
         self.robot.request(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'B')
         self.assertLastMessage('stop being greedy and free A first.')
         return
 
+
+class TestBoardManagerDone(TestBoardManager):
+
+    def setUp(self):
+        super(TestBoardManagerDone, self).setUp();
+        self.robot.add_resource(self.message_user_1, 'A')
+
     def test_done(self):
         """Test if the bot releases the resources when requested."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.robot.done(self.message_user_1)
         self.assertLastMessage('A is free to use, just ask it.',
@@ -259,7 +280,6 @@ class TestBoardManager(unittest.TestCase):
     def test_done_has_nothing(self):
         """Test if the bot complains if you try to release a resource you
         never had."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.done(self.message_user_1)
         self.assertLastMessage('I didn\'t even know you were using '
                                'something!')
@@ -268,7 +288,6 @@ class TestBoardManager(unittest.TestCase):
     def test_done_alert_other(self):
         """Test if the bot informs the second user in the list that the
         resource is free."""
-        self.robot.add_resource(self.message_user_1, 'A')
         self.robot.request(self.message_user_1, 'A')
         self.robot.request(self.message_user_2, 'A')
         self.robot.done(self.message_user_1)
@@ -277,15 +296,6 @@ class TestBoardManager(unittest.TestCase):
                                self.message_user_2)
         return
 
-    # helpers
-    def assertLastMessage(self, message, reply_to=None):
-        """Check if the last received message is the one we expect."""
-        if reply_to is None:
-            reply_to = self.message_user_1
-
-        self.assertEquals(self.last_message, '@' + reply_to.sender.nick +
-                          ' ' + message)
-        return
 
 if __name__ == '__main__':
     unittest.main()
