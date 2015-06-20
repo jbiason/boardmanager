@@ -51,13 +51,19 @@ class BoardManager(WillPlugin):
             return
 
         if resource not in self.resources:
-            self.reply(message, 'Never heard of "{resource}". Is it '
+            self.reply(message, 'I never heard of "{resource}", is it '
                        'something you can eat?'.format(resource=resource))
             return
 
         if message.sender.nick in self.resources[resource]:
             self.reply(message, 'You\'re already in the list, no need to '
                        'ask for it again.')
+            return
+
+        user_resource = self._user_resource(message.sender.nick)
+        if user_resource:
+            self.reply(message, 'stop being greedy and free {resource} '
+                       'first.'.format(resource=user_resource))
             return
 
         if not self.resources[resource]:
@@ -75,15 +81,9 @@ class BoardManager(WillPlugin):
 
     @respond_to('done')
     def done(self, message):
-        used_resource = None
-        for resource in self.resources:
-            if message.sender.nick in self.resources[resource]:
-                used_resource = resource
-                break
-
+        used_resource = self._user_resource(message.sender.nick)
         if not used_resource:
-            self.reply(message, 'I didn\'t even know you were using '
-                       'something!')
+            self.reply(message, 'I didn\'t even know you were using something!')
             return
 
         # what can happen here:
@@ -119,6 +119,17 @@ class BoardManager(WillPlugin):
     @respond_to('(?P<resource>\S+) is free\?')
     def is_free(self, message, resource):
         return
+
+    def _user_resource(self, user):
+        """Return the resource the user is using right now. If the user is not
+        using any resources, return None."""
+        used_resource = None
+        for resource in self.resources:
+            if user in self.resources[resource]:
+                used_resource = resource
+                break
+        return used_resource
+
 
 # ----------------------------------------------------------------------
 #  The tests
@@ -199,7 +210,7 @@ class TestBoardManager(unittest.TestCase):
         """Test if the bot complains when you try to get something that
         doesn't exist."""
         self.robot.request(self.message_user_1, 'A')
-        self.assertLastMessage('I know nothing about A, is it something you '
+        self.assertLastMessage('I never heard of "A", is it something you '
                                'can eat?')
         return
 
