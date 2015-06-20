@@ -75,6 +75,45 @@ class BoardManager(WillPlugin):
 
     @respond_to('done')
     def done(self, message):
+        used_resource = None
+        for resource in self.resources:
+            if message.sender.nick in self.resources[resource]:
+                used_resource = resource
+                break
+
+        if not used_resource:
+            self.reply(message, 'I didn\'t even know you were using '
+                       'something!')
+            return
+
+        # what can happen here:
+        # 1) the user was not the first in the list: just remove them and be
+        # done with it.
+        # 2) the user is the first in the list: we remove the resource from
+        # them but:
+        # 2.1) If the list is not empty after that, we alert the next one in
+        # the list (the new first person in the list)
+        # 2.2) If the list gets empty, we alert everyone that the resource is
+        # free to everyone
+
+        if self.resources[used_resource][0] != message.sender.nick:
+            self.resources[used_resource].remove(message.sender.nick)
+            self.reply('Ok, you\'re out of the list for resource '
+                       '{resource}'.format(resource=used_resource))
+            return
+
+        # we know it's the first in the list, we can just pop() it out
+        self.resources[used_resource].pop(0)
+
+        if len(self.resources[used_resource]) > 0:
+            self.say('@{user} there is no one using {resource} right now, '
+                     'you\'re free to go.'.format(
+                         user=self.resources[used_resource][0],
+                         resource=used_resource))
+            return
+
+        self.say('@all {resource} is free to use, just ask it.'.format(
+            resource=used_resource))
         return
 
     @respond_to('(?P<resource>\S+) is free\?')
@@ -104,7 +143,7 @@ class TestBoardManager(unittest.TestCase):
                                     'sender': ObjDict({'nick': 'all'})})
         self.robot.say = self._mocked_say
 
-    def _mocked_say(self, content, message, **kwargs):
+    def _mocked_say(self, content, message=None, **kwargs):
         """'Mocked' reply function, so we don't need to create a real "message"
         object."""
         self.last_message = content
@@ -222,7 +261,8 @@ class TestBoardManager(unittest.TestCase):
         self.robot.request(self.message_user_1, 'A')
         self.robot.request(self.message_user_2, 'A')
         self.robot.done(self.message_user_1)
-        self.assertLastMessage('there is no one using A, you\'re free to go.',
+        self.assertLastMessage('there is no one using A right now, '
+                               'you\'re free to go.',
                                self.message_user_2)
         return
 
